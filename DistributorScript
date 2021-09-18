@@ -1,0 +1,80 @@
+bl_info = {
+    "name": "Distribute to Empties Randomly",
+    "blender": (2, 93, 0),
+    "category": "Object",
+    "location": "View3D > Properties > Addons",
+    "description": "Randomly distribute objects to Empties with names of \
+    Collections the objects are in.",
+    "support": "TESTING"
+}
+
+import bpy, random
+
+class DISTRIBUTETOEMPTIESRANDOMLY_OT_distribute_to_empties_randomly(bpy.types.Operator):
+
+    """Randomly distribute objects to Empties with names of Collections the \
+    objects are in.""" 
+    bl_idname = "object.distribute_to_empties_randomly"
+    bl_label = "Distribute To Empties Randomly"
+    bl_options = {'REGISTER', 'UNDO_GROUPED'}
+
+    def execute(self, context):
+        randomize_targets_parent_collection = bpy.context.scene.randomize_targets_parent_collection.name
+        randomize_targets_collection = \
+        random.choice(bpy.data.collections[randomize_targets_parent_collection].children).name
+
+    
+        for object in bpy.data.collections[randomize_targets_parent_collection].all_objects[:]:
+            if object.type != "EMPTY":
+                bpy.data.objects.remove(object)
+
+
+        for randomizer_target_object in bpy.data.collections[randomize_targets_collection].all_objects[:]:
+                randomizer_target_name = randomizer_target_object.name
+                picked_name = random.choice(bpy.data.collections[randomizer_target_name.split(".")[0]].objects).name
+                picked_data = bpy.data.objects[picked_name].data
+                new_object = bpy.data.objects.new(picked_name + ".instance", picked_data)
+                bpy.context.view_layer.active_layer_collection.collection.objects.link(new_object)
+                new_object.parent = bpy.data.objects[randomizer_target_name]
+                for collection in new_object.users_collection:
+                    collection.objects.unlink(new_object)
+                bpy.data.collections[randomize_targets_collection].objects.link(new_object)
+        return {"FINISHED"}
+
+class DISTRIBUTETOEMPTIESRANDOMLY_PT_options(bpy.types.Panel):
+    bl_idname = "DISTRIBUTETOEMPTIESRANDOMLY_PT_options"
+    bl_label = "Distribute to Empties"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "Addons"
+    bl_context = "objectmode"
+    
+    def draw(self, context):
+        layout = self.layout.column()
+        scene = context.scene
+        layout.prop_search(scene, "randomize_targets_parent_collection", bpy.data, "collections", text="Target Collection")
+        layout.operator("object.distribute_to_empties_randomly")
+
+
+def register():
+    bpy.utils.register_class(DISTRIBUTETOEMPTIESRANDOMLY_OT_distribute_to_empties_randomly)
+    bpy.utils.register_class(DISTRIBUTETOEMPTIESRANDOMLY_PT_options)
+    
+    bpy.types.Scene.randomize_targets_parent_collection = \
+    bpy.props.PointerProperty(type=bpy.types.Collection, name="Collection with Collections of Randomization Target Empties")
+
+
+def unregister():
+    bpy.utils.unregister_class(DISTRIBUTETOEMPTIESRANDOMLY_OT_distribute_to_empties_randomly)
+    bpy.utils.unregister_class(DISTRIBUTETOEMPTIESRANDOMLY_PT_options)
+    del bpy.types.Scene.randomize_targets_parent_collection
+
+
+#def distribute_empties_randomly_handler(scene, depsgraph):
+#    bpy.ops.object.distribute_to_empties_randomly()
+#    depsgraph = context.evaluated_depsgraph_get()
+#bpy.app.handlers.frame_change_pre.append(distribute_empties_randomly_handler)
+
+
+if __name__ == "__main__":
+    register()
